@@ -1,3 +1,4 @@
+// src/engine/scoring.ts
 export interface ScoreInput {
   attempts: number;
   hintsUsed: number;

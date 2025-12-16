@@ -1,0 +1,44 @@
+{
+  "islandId": "island-01",
+  "puzzles": [
+    {
+      "id": "inicio-01",
+      "title": "Par o impar",
+      "difficulty": "easy",
+      "rule": "isEven",
+      "hints": [
+        "Probá números chicos.",
+        "Pensá en dividir por 2."
+      ],
+      "reveal": {
+        "description": "El número da ✅ si es par."
+      }
+    },
+    {
+      "id": "inicio-02",
+      "title": "Longitud de palabra",
+      "difficulty": "easy",
+      "rule": "evenWordLength",
+      "hints": [
+        "No importa la palabra.",
+        "Importa cuántas letras tiene."
+      ],
+      "reveal": {
+        "description": "Da ✅ si la palabra tiene longitud par."
+      }
+    },
+    {
+      "id": "inicio-03",
+      "title": "Mayor que cinco",
+      "difficulty": "easy",
+      "rule": "greaterThanFive",
+      "hints": [
+        "Probá valores límite.",
+        "Pensá en un número frontera."
+      ],
+      "reveal": {
+        "description": "Da ✅ si el número es mayor que 5."
+      }
+    }
+  ]
+}

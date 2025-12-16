@@ -1,0 +1,9 @@
+[
+  {
+    "id": "island-01",
+    "order": 1,
+    "title": "Inicio",
+    "description": "Aprendé cómo funciona el juego.",
+    "puzzleSet": "inicio"
+  }
+]

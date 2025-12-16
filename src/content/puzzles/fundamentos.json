@@ -1,0 +1,18 @@
+{
+  "islandId": "island-03",
+  "puzzles": [
+    {
+      "id": "fund-01",
+      "title": "Par y mayor que 10",
+      "difficulty": "easy",
+      "rule": ["isEven", "greaterThanTen"],
+      "operator": "AND",
+      "hints": [
+        "No alcanza con una sola condición."
+      ],
+      "reveal": {
+        "description": "Da ✅ si es par y mayor que 10."
+      }
+    }
+  ]
+}
