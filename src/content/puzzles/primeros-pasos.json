@@ -1,0 +1,57 @@
+{
+  "islandId": "island-02",
+  "puzzles": [
+    {
+      "id": "pp-01",
+      "title": "Empieza con vocal",
+      "difficulty": "easy",
+      "rule": "startsWithVowel",
+      "hints": [
+        "Mirá la primera letra.",
+        "Probá con 'a...' y con 'b...'."
+      ],
+      "reveal": {
+        "description": "Da ✅ si la palabra empieza con una vocal (a, e, i, o, u)."
+      }
+    },
+    {
+      "id": "pp-02",
+      "title": "Positivo",
+      "difficulty": "easy",
+      "rule": "isPositive",
+      "hints": [
+        "Probá con números negativos.",
+        "El cero es especial."
+      ],
+      "reveal": {
+        "description": "Da ✅ si el número es mayor que 0."
+      }
+    },
+    {
+      "id": "pp-03",
+      "title": "Divisible por 3",
+      "difficulty": "easy",
+      "rule": "divisibleBy3",
+      "hints": [
+        "Probá 3, 6, 9...",
+        "Pensá en el resto al dividir."
+      ],
+      "reveal": {
+        "description": "Da ✅ si el número es divisible por 3."
+      }
+    },
+    {
+      "id": "pp-04",
+      "title": "Más de 2 vocales",
+      "difficulty": "easy",
+      "rule": "moreThanTwoVowels",
+      "hints": [
+        "Contá vocales, no letras.",
+        "Probá con palabras cortas y largas."
+      ],
+      "reveal": {
+        "description": "Da ✅ si la palabra tiene más de 2 vocales."
+      }
+    }
+  ]
+}

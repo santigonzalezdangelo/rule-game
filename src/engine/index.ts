@@ -5,3 +5,5 @@ export * from "./hints";
 export * from "./validation";
 export * from "./scoring";
 export * from "./session";
+export * from "./logic";
+export * from "./evaluatePuzzle";

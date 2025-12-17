@@ -3,16 +3,42 @@
   "puzzles": [
     {
       "id": "fund-01",
-      "title": "Par y mayor que 10",
+      "title": "AND básico",
       "difficulty": "easy",
-      "rule": ["isEven", "greaterThanTen"],
-      "operator": "AND",
-      "hints": [
-        "No alcanza con una sola condición."
-      ],
-      "reveal": {
-        "description": "Da ✅ si es par y mayor que 10."
-      }
+      "logic": {
+        "condition": "and",
+        "rules": ["isEven", "isPositive"],
+        "label": "isEven AND isPositive"
+      },
+      "hints": ["Probá con negativos.", "Probá pares e impares.", "El cero es especial."],
+      "reveal": { "description": "Da ✅ si es par Y es mayor que 0." },
+      "validationCases": [
+        { "input": "2", "expected": true },
+        { "input": "-2", "expected": false },
+        { "input": "3", "expected": false },
+        { "input": "4", "expected": true },
+        { "input": "0", "expected": false }
+      ]
+    },
+    {
+      "id": "fund-02",
+      "title": "OR básico",
+      "difficulty": "easy",
+      "logic": {
+        "condition": "or",
+        "rules": ["isEven", "divisibleBy3"],
+        "label": "isEven OR divisibleBy3"
+      },
+      "hints": ["Buscá casos que cumplan solo una parte.", "Probá múltiplos de 3 impares.", "Probá impares que no sean múltiplos de 3."],
+      "reveal": { "description": "Da ✅ si es par O es divisible por 3." },
+      "validationCases": [
+        { "input": "2", "expected": true },
+        { "input": "3", "expected": true },
+        { "input": "5", "expected": false },
+        { "input": "6", "expected": true },
+        { "input": "9", "expected": true },
+        { "input": "10", "expected": true }
+      ]
     }
   ]
 }

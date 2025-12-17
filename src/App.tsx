@@ -1,37 +1,69 @@
+// src/App.tsx
 import { useEffect, useMemo, useState } from "react";
+
 import inicio from "./content/puzzles/inicio.json";
+import primerosPasos from "./content/puzzles/primeros-pasos.json";
+import fundamentos from "./content/puzzles/fundamentos.json";
+
 import { loadPuzzle } from "./content/loader";
 import { createSession } from "./engine";
 
+const islandSets = {
+  "island-01": { title: "Inicio", data: inicio },
+  "island-02": { title: "Primeros Pasos", data: primerosPasos },
+  "island-03": { title: "Fundamentos", data: fundamentos },
+} as const;
+
+
+type IslandId = keyof typeof islandSets;
+
 export default function App() {
-  const puzzles = useMemo(() => inicio.puzzles.map(loadPuzzle), []);
+  // Isla seleccionada
+  const [islandId, setIslandId] = useState<IslandId>("island-01");
+
+  // Puzzles de la isla actual (cargados desde JSON → Puzzle del motor)
+  const puzzles = useMemo(() => {
+    const set = islandSets[islandId].data;
+    return set.puzzles.map(loadPuzzle);
+  }, [islandId]);
+
+  // Índice de puzzle dentro de la isla
   const [index, setIndex] = useState(0);
 
+  // Al cambiar de isla, arrancar en el primer puzzle
+  useEffect(() => {
+    setIndex(0);
+  }, [islandId]);
+
+  // Puzzle + sesión actuales
   const puzzle = puzzles[index];
   const session = useMemo(() => createSession(puzzle), [puzzle]);
 
-  // “forzar render” cuando cambia estado interno de session
+  // Forzar re-render cuando cambia el estado interno de session
   const [, forceRender] = useState(0);
   const rerender = () => forceRender((n) => n + 1);
 
+  // Estados UI
   const [rawInput, setRawInput] = useState("");
   const [showValidation, setShowValidation] = useState(false);
   const [answers, setAnswers] = useState<boolean[]>(() =>
     puzzle.validationCases.map(() => false)
   );
 
-  // Reset UI cuando cambiás de puzzle
+  // Reset UI al cambiar de puzzle
   useEffect(() => {
     setRawInput("");
     setShowValidation(false);
     setAnswers(puzzle.validationCases.map(() => false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index]);
+  }, [index, islandId]);
 
+  // Datos derivados
   const state = session.getState();
   const hints = session.getVisibleHints();
   const reveal = session.getReveal();
 
+  // Handlers
   function onTry() {
     const res = session.tryRawInput(rawInput);
     if (!res.ok) {
@@ -61,18 +93,57 @@ export default function App() {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 900, margin: "0 auto" }}>
-      <h1 style={{ marginBottom: 6 }}>Isla 1: Inicio</h1>
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+    <div
+      style={{
+        padding: 24,
+        fontFamily: "system-ui, sans-serif",
+        maxWidth: 900,
+        margin: "0 auto",
+      }}
+    >
+      <h1 style={{ marginBottom: 8 }}>Rule Game (UI de test)</h1>
+
+      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <label>
+          Isla:
+          <select
+            value={islandId}
+            onChange={(e) => setIslandId(e.target.value as IslandId)}
+            style={{ marginLeft: 8, padding: 6 }}
+          >
+            {Object.entries(islandSets).map(([id, info]) => (
+              <option key={id} value={id}>
+                {info.title}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <button onClick={prev} disabled={index === 0} style={{ padding: "8px 12px" }}>
           ◀ Anterior
         </button>
-        <button onClick={next} disabled={index === puzzles.length - 1} style={{ padding: "8px 12px" }}>
+        <button
+          onClick={next}
+          disabled={index === puzzles.length - 1}
+          style={{ padding: "8px 12px" }}
+        >
           Siguiente ▶
         </button>
+
         <span style={{ opacity: 0.75 }}>
           Puzzle {index + 1} / {puzzles.length}
         </span>
+
+        <button
+          onClick={() => {
+            session.reset();
+            setAnswers(puzzle.validationCases.map(() => false));
+            rerender();
+          }}
+          style={{ padding: "8px 12px" }}
+        >
+          Reset puzzle
+        </button>
       </div>
 
       <hr style={{ margin: "16px 0" }} />
@@ -81,14 +152,23 @@ export default function App() {
       <p style={{ marginTop: 6, opacity: 0.8 }}>Dificultad: {puzzle.difficulty}</p>
 
       {state.status === "won" && (
-        <div style={{ marginTop: 10, padding: 12, border: "1px solid #2a2", borderRadius: 8 }}>
+        <div
+          style={{
+            marginTop: 10,
+            padding: 12,
+            border: "1px solid #2a2",
+            borderRadius: 8,
+          }}
+        >
           <b>✅ ¡Ganaste!</b>
+
           {reveal && (
             <div style={{ marginTop: 8 }}>
               <b>{reveal.title ?? "La regla era:"}</b>
               <p style={{ margin: "6px 0 0" }}>{reveal.description}</p>
             </div>
           )}
+
           {state.score !== null && (
             <p style={{ margin: "8px 0 0", opacity: 0.8 }}>
               Score: <b>{state.score}</b>
@@ -107,9 +187,13 @@ export default function App() {
             if (e.key === "Enter") onTry();
           }}
         />
-        <button onClick={onTry} style={{ padding: "10px 14px" }}>Probar</button>
-        <button onClick={onHint} style={{ padding: "10px 14px" }}>Pista</button>
-        <button onClick={() => setShowValidation(v => !v)} style={{ padding: "10px 14px" }}>
+        <button onClick={onTry} style={{ padding: "10px 14px" }}>
+          Probar
+        </button>
+        <button onClick={onHint} style={{ padding: "10px 14px" }}>
+          Pista
+        </button>
+        <button onClick={() => setShowValidation((v) => !v)} style={{ padding: "10px 14px" }}>
           Resolver
         </button>
       </div>
@@ -118,7 +202,9 @@ export default function App() {
         <div style={{ marginTop: 14, padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
           <b>Pistas</b>
           <ul style={{ margin: "8px 0 0" }}>
-            {hints.map((h, i) => <li key={i}>{h}</li>)}
+            {hints.map((h, i) => (
+              <li key={i}>{h}</li>
+            ))}
           </ul>
         </div>
       )}
@@ -138,14 +224,16 @@ export default function App() {
                   checked={answers[i] ?? false}
                   onChange={(e) => {
                     const checked = e.target.checked;
-                    setAnswers(prev => {
+                    setAnswers((prev) => {
                       const copy = [...prev];
                       copy[i] = checked;
                       return copy;
                     });
                   }}
                 />
-                <span>Caso {i + 1}: <code>{String(c.input)}</code></span>
+                <span>
+                  Caso {i + 1}: <code>{String(c.input)}</code>
+                </span>
               </label>
             ))}
           </div>
