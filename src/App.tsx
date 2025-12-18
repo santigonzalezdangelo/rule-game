@@ -14,63 +14,173 @@ const islandSets = {
   "island-03": { title: "Fundamentos", data: fundamentos },
 } as const;
 
-
 type IslandId = keyof typeof islandSets;
 
-export default function App() {
-  // Isla seleccionada
-  const [islandId, setIslandId] = useState<IslandId>("island-01");
+const ISLAND_ORDER: IslandId[] = ["island-01", "island-02", "island-03"];
 
-  // Puzzles de la isla actual (cargados desde JSON → Puzzle del motor)
+const STORAGE_KEY = "rulegame.progress.v1";
+
+type ProgressStore = {
+  selectedIslandId: IslandId;
+  islandIndex: Partial<Record<IslandId, number>>;
+  solved: Record<
+    string,
+    {
+      wonAt: number;
+      bestScore: number | null;
+    }
+  >;
+};
+
+function loadProgress(): ProgressStore | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as ProgressStore;
+  } catch {
+    return null;
+  }
+}
+
+function saveProgress(p: ProgressStore) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+  } catch {
+    // ignore
+  }
+}
+
+function clampIndex(i: number, len: number) {
+  return Math.min(i, Math.max(0, len - 1));
+}
+
+export default function App() {
+  // ✅ Progreso persistido
+  const [progress, setProgress] = useState<ProgressStore>(() => {
+    const loaded = loadProgress();
+    return (
+      loaded ?? {
+        selectedIslandId: "island-01",
+        islandIndex: {},
+        solved: {},
+      }
+    );
+  });
+
+  // ✅ Guardado centralizado (esto arregla tu problema de persistencia)
+  useEffect(() => {
+    saveProgress(progress);
+  }, [progress]);
+
+  // Isla seleccionada (inicial desde progress)
+  const [islandId, setIslandId] = useState<IslandId>(progress.selectedIslandId);
+
+  // Puzzles cargados de la isla
   const puzzles = useMemo(() => {
     const set = islandSets[islandId].data;
     return set.puzzles.map(loadPuzzle);
   }, [islandId]);
 
-  // Índice de puzzle dentro de la isla
-  const [index, setIndex] = useState(0);
+  // Índice (inicial desde progress para esa isla)
+  const [index, setIndex] = useState<number>(() => progress.islandIndex[progress.selectedIslandId] ?? 0);
 
-  // Al cambiar de isla, arrancar en el primer puzzle
-  useEffect(() => {
-    setIndex(0);
-  }, [islandId]);
-
-  // Puzzle + sesión actuales
-  const safeIndex = Math.min(index,puzzles.length-1);
+  // ✅ índice seguro SIEMPRE
+  const safeIndex = clampIndex(index, puzzles.length);
   const puzzle = puzzles[safeIndex];
+
+  // Sesión del puzzle actual
   const session = useMemo(() => createSession(puzzle), [puzzle]);
 
   // Forzar re-render cuando cambia el estado interno de session
   const [, forceRender] = useState(0);
   const rerender = () => forceRender((n) => n + 1);
 
-  // Estados UI
+  // Derivados
+  const state = session.getState();
+  const hints = session.getVisibleHints();
+  const reveal = session.getReveal();
+
+  // UI states
   const [rawInput, setRawInput] = useState("");
   const [showValidation, setShowValidation] = useState(false);
-  const [answers, setAnswers] = useState<boolean[]>(() =>
-    puzzle.validationCases.map(() => false)
-  );
+  const [answers, setAnswers] = useState<boolean[]>(() => puzzle.validationCases.map(() => false));
 
-  // Reset UI al cambiar de puzzle
+  // ✅ Cuando cambia isla, restaurar index guardado para esa isla
+  useEffect(() => {
+    const stored = progress.islandIndex[islandId] ?? 0;
+    setIndex(clampIndex(stored, puzzles.length));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [islandId, puzzles.length]);
+
+  // ✅ Guardar selected island + index por isla (en el state `progress`)
+  useEffect(() => {
+    setProgress((prev) => ({
+      ...prev,
+      selectedIslandId: islandId,
+      islandIndex: { ...prev.islandIndex, [islandId]: safeIndex },
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [islandId, safeIndex]);
+
+  // ✅ Reset UI al cambiar puzzle
   useEffect(() => {
     setRawInput("");
     setShowValidation(false);
     setAnswers(puzzle.validationCases.map(() => false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, islandId]);
+  }, [islandId, puzzle.id]);
 
-  // Datos derivados
-  const state = session.getState();
-  const hints = session.getVisibleHints();
-  const reveal = session.getReveal();
+  // ✅ Guardar solved + best score al ganar
+  useEffect(() => {
+    if (state.status !== "won") return;
+
+    setProgress((prev) => {
+      const prevSolved = prev.solved[puzzle.id];
+      const prevBest = prevSolved?.bestScore ?? null;
+      const newScore = state.score ?? null;
+
+      const bestScore =
+        prevBest === null
+          ? newScore
+          : newScore === null
+          ? prevBest
+          : Math.max(prevBest, newScore);
+
+      return {
+        ...prev,
+        solved: {
+          ...prev.solved,
+          [puzzle.id]: { wonAt: Date.now(), bestScore },
+        },
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.status, state.score, puzzle.id]);
+
+  // ✅ Progresión: isla desbloqueada si la anterior está completa
+  const solvedIds = useMemo(() => new Set(Object.keys(progress.solved)), [progress.solved]);
+
+  function isIslandComplete(id: IslandId) {
+    const rawPuzzles = islandSets[id].data.puzzles;
+    return rawPuzzles.every((p: any) => solvedIds.has(p.id));
+  }
+
+  function isIslandUnlocked(id: IslandId) {
+    const pos = ISLAND_ORDER.indexOf(id);
+    if (pos <= 0) return true; // isla 1 siempre
+    const prevIsland = ISLAND_ORDER[pos - 1];
+    return isIslandComplete(prevIsland);
+  }
 
   // Handlers
   function onTry() {
-    const res = session.tryRawInput(rawInput);
+    const res = session.tryRawInput(rawInput.trim());
     if (!res.ok) {
       alert("Input inválido");
       return;
     }
+    // ✅ borrar input después de intentar
+    setRawInput("");
     rerender();
   }
 
@@ -93,15 +203,10 @@ export default function App() {
     setIndex((i) => Math.min(puzzles.length - 1, i + 1));
   }
 
+  const solvedInfo = progress.solved[puzzle.id];
+
   return (
-    <div
-      style={{
-        padding: 24,
-        fontFamily: "system-ui, sans-serif",
-        maxWidth: 900,
-        margin: "0 auto",
-      }}
-    >
+    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 900, margin: "0 auto" }}>
       <h1 style={{ marginBottom: 8 }}>Rule Game (UI de test)</h1>
 
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -109,30 +214,38 @@ export default function App() {
           Isla:
           <select
             value={islandId}
-            onChange={(e) => setIslandId(e.target.value as IslandId)}
+            onChange={(e) => {
+              const nextIsland = e.target.value as IslandId;
+              if (!isIslandUnlocked(nextIsland)) {
+                alert("Primero completá todos los puzzles de la isla anterior 🙂");
+                return;
+              }
+              setIslandId(nextIsland);
+            }}
             style={{ marginLeft: 8, padding: 6 }}
           >
-            {Object.entries(islandSets).map(([id, info]) => (
-              <option key={id} value={id}>
-                {info.title}
-              </option>
-            ))}
+            {ISLAND_ORDER.map((id) => {
+              const info = islandSets[id];
+              const unlocked = isIslandUnlocked(id);
+              const done = isIslandComplete(id);
+              return (
+                <option key={id} value={id} disabled={!unlocked}>
+                  {info.title} {done ? "✅" : ""}
+                </option>
+              );
+            })}
           </select>
         </label>
 
-        <button onClick={prev} disabled={index === 0} style={{ padding: "8px 12px" }}>
+        <button onClick={prev} disabled={safeIndex === 0} style={{ padding: "8px 12px" }}>
           ◀ Anterior
         </button>
-        <button
-          onClick={next}
-          disabled={index === puzzles.length - 1}
-          style={{ padding: "8px 12px" }}
-        >
+        <button onClick={next} disabled={safeIndex === puzzles.length - 1} style={{ padding: "8px 12px" }}>
           Siguiente ▶
         </button>
 
         <span style={{ opacity: 0.75 }}>
-          Puzzle {index + 1} / {puzzles.length}
+          Puzzle {safeIndex + 1} / {puzzles.length}
         </span>
 
         <button
@@ -149,18 +262,14 @@ export default function App() {
 
       <hr style={{ margin: "16px 0" }} />
 
-      <h2 style={{ margin: 0 }}>{puzzle.title}</h2>
+      <h2 style={{ margin: 0 }}>
+        {puzzle.title} {solvedInfo ? "✅" : ""}
+      </h2>
+
       <p style={{ marginTop: 6, opacity: 0.8 }}>Dificultad: {puzzle.difficulty}</p>
 
       {state.status === "won" && (
-        <div
-          style={{
-            marginTop: 10,
-            padding: 12,
-            border: "1px solid #2a2",
-            borderRadius: 8,
-          }}
-        >
+        <div style={{ marginTop: 10, padding: 12, border: "1px solid #2a2", borderRadius: 8 }}>
           <b>✅ ¡Ganaste!</b>
 
           {reveal && (
@@ -243,10 +352,7 @@ export default function App() {
             <button onClick={onSubmitValidation} style={{ padding: "10px 14px" }}>
               Enviar validación
             </button>
-            <button
-              onClick={() => setAnswers(puzzle.validationCases.map(() => false))}
-              style={{ padding: "10px 14px" }}
-            >
+            <button onClick={() => setAnswers(puzzle.validationCases.map(() => false))} style={{ padding: "10px 14px" }}>
               Limpiar
             </button>
           </div>
