@@ -36,7 +36,8 @@ export default function App() {
   }, [islandId]);
 
   // Puzzle + sesión actuales
-  const puzzle = puzzles[index];
+  const safeIndex = Math.min(index,puzzles.length-1);
+  const puzzle = puzzles[safeIndex];
   const session = useMemo(() => createSession(puzzle), [puzzle]);
 
   // Forzar re-render cuando cambia el estado interno de session
